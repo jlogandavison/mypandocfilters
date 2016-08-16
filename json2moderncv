@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+
+"""
+JSON -> MODERN_CV
+
+Pandoc filter for producing latex compatible with the moderncv package.
+
+Usage:
+
+->  Markdown of the format:
+
+    <div class="cventry">
+      # degree
+      # year
+      # institution
+      # city
+      # grade
+
+      description
+    </div>
+
+    Will produce a cventry block in latex
+
+    The headers can all go on one line
+    eg: # degree | year | ....
+
+    "desription" can contain multiple block level elements
+
+->  Top level bullet lists are converted into cvlistdoubleitems
+
+->  Top level paragraphs become cvitems and can optionally include a date
+    eg: date | description
+"""
+
+from panflute import *
+
+def iscventry(elem):
+  return type(elem) == Div and "cventry" in elem.classes
+
+def ancestoriscventry(elem):
+  if type(elem) == Doc:
+    return False
+  return iscventry(elem.ancestor(1)) or ancestoriscventry(elem.ancestor(1))
+
+def iscvitem(elem):
+  return type(elem) == Para and \
+         not ancestoriscventry(elem)
+
+def iscvlistdoubleitem(elem):
+  return type(elem) == BulletList and \
+         not ancestoriscventry(elem)
+
+def splitHeaders(headers):
+  def isSep(el):
+    return type(el) == Str and el.text == "|"
+
+  def isWindow(a, b, c):
+    return(type(a) == Space and
+           isSep(b)         and
+           type(c) == Space)
+
+  segments = []
+  for h in headers:
+    content = h.content.list
+
+    notDone = True
+    while notDone:
+      notDone = False
+      for index, c in enumerate(content):
+        if index <= len(content)-3 and isWindow(*content[index:index+3]):
+          segments.append(content[:index])
+          content = content[index+3:]
+          notDone = True
+          break
+    segments.append(content)
+  return segments
+
+
+def toJSON(elems):
+  doc = Doc(elems)
+  import io
+  with io.StringIO() as f:
+    dump(doc, f)
+    return f.getvalue()
+
+def toLatex(elems):
+  return convert_text(toJSON(elems),
+                      input_format="json",
+                      output_format="latex")
+
+def noEmptyLines(text):
+  return "\n".join([s for s in text.splitlines() if s])
+
+def cventry(elem, doc):
+  headerLines = [h for h in elem.content.list if isinstance(h, Header)]
+  headers =  splitHeaders(headerLines)
+  headers += [[]] * (5-len(headers))
+
+  (degree,
+   year,
+   institution,
+   city,
+   grade) = headers
+
+  if doc.format == "latex":
+    p = Para()
+    p.content = [RawInline('\\cventry{', format='latex')] + year + \
+                [RawInline('}{', format='latex')] + degree + \
+                [RawInline('}{', format='latex')] + institution + \
+                [RawInline('}{', format='latex')] + city + \
+                [RawInline('}{', format='latex')] + grade + \
+                [RawInline('}{', format='latex')] + \
+                [RawInline(noEmptyLines(toLatex(p)), format='latex') \
+                 for p in elem.content.list \
+                 if not isinstance(p, Header)] + \
+                [RawInline('}', format='latex')]
+    return [p]
+
+def cvitem(elem, doc):
+  content = splitHeaders([elem])
+  content = ([[]] * (2-len(content))) + content
+
+  year, description = content
+
+  if doc.format == "latex":
+    p = Para()
+    p.content = [RawInline('\\cvitem{', format='latex')] + year + \
+                [RawInline('}{', format='latex')] + description + \
+                [RawInline('}', format='latex')]
+    return [p]
+
+def cvlistdoubleitem(elem, doc):
+  contents = [l.content.list for l in elem.content]
+  content_pairs = [contents[x:x+2] for x in range(0,len(contents),2)]
+  content_pairs += [[]] * (len(content_pairs) % 2)
+
+
+  if doc.format == "latex":
+    out = []
+    for pair in content_pairs:
+      out += [RawInline('\\cvlistdoubleitem', format='latex')]
+      for item in pair:
+        out += [RawInline('{', format='latex')] + \
+               [RawInline(noEmptyLines(toLatex(p)), format='latex') \
+                for p in item] + \
+               [RawInline('}', format='latex')]
+
+    p = Para()
+    p.content = out
+    return [p]
+
+def moderncv(elem, doc):
+  if iscventry(elem):
+    return cventry(elem, doc)
+  elif iscvitem(elem):
+    return cvitem(elem, doc)
+  elif iscvlistdoubleitem(elem):
+    return cvlistdoubleitem(elem, doc)
+
+
+if __name__ == "__main__":
+  toJSONFilter(moderncv)
