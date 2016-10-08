@@ -159,9 +159,9 @@ def cvitem(elem, doc):
     return [htmlcventry(left, right)]
 
 def cvlistdoubleitem(elem, doc):
-  contents = [l.content.list for l in elem.content]
+  contents =  [l.content.list for l in elem.content]
+  contents += [[]] * (len(contents) % 2)
   content_pairs = [contents[x:x+2] for x in range(0,len(contents),2)]
-  content_pairs += [[]] * (len(content_pairs) % 2)
 
 
   if doc.format == "latex":
