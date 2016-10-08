@@ -123,7 +123,9 @@ def cventry(elem, doc):
                 [RawInline('}{', format='latex')] + city + \
                 [RawInline('}{', format='latex')] + grade + \
                 [RawInline('}{', format='latex')] + \
-                [RawInline(noEmptyLines(toLatex(p)), format='latex') \
+                [RawInline(noEmptyLines(toLatex(p)) + "\\newline", format='latex') \
+                     if type(p) == Para else \
+                     RawInline(noEmptyLines(toLatex(p)), format='latex')\
                  for p in elem.content.list \
                  if not isinstance(p, Header)] + \
                 [RawInline('}', format='latex')]
