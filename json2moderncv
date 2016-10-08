@@ -91,6 +91,19 @@ def toLatex(elems):
 def noEmptyLines(text):
   return "\n".join([s for s in text.splitlines() if s])
 
+def htmlcventry(left, right):
+  return Div( \
+    *([Div( \
+      *left, \
+      classes=["cventry-col-left"] \
+     ), \
+     Div( \
+       *right, \
+       classes=["cventry-col-right"] \
+     )]), \
+    classes=["cventry"] \
+  )
+
 def cventry(elem, doc):
   headerLines = [h for h in elem.content.list if isinstance(h, Header)]
   headers =  splitHeaders(headerLines)
@@ -115,6 +128,16 @@ def cventry(elem, doc):
                  if not isinstance(p, Header)] + \
                 [RawInline('}', format='latex')]
     return [p]
+  elif doc.format == "html":
+    sep = [Str(","), Space]
+    left = [Header(*year, level=3)]
+    right = [Header( \
+              *(degree + sep + institution + sep + city + sep + grade), \
+              level=3 \
+            )] + \
+            [p for p in elem.content.list \
+             if not isinstance(p, Header)]
+    return [htmlcventry(left, right)]
 
 def cvitem(elem, doc):
   content = splitHeaders([elem])
@@ -128,6 +151,10 @@ def cvitem(elem, doc):
                 [RawInline('}{', format='latex')] + description + \
                 [RawInline('}', format='latex')]
     return [p]
+  elif doc.format == "html":
+    left = [Header(*year, level=3)]
+    right = [Para(*description)]
+    return [htmlcventry(left, right)]
 
 def cvlistdoubleitem(elem, doc):
   contents = [l.content.list for l in elem.content]
@@ -148,6 +175,8 @@ def cvlistdoubleitem(elem, doc):
     p = Para()
     p.content = out
     return [p]
+  elif doc.format == "html":
+    return [htmlcventry([Para()], [Div(elem, classes=["twocol"])])]
 
 def moderncv(elem, doc):
   if iscventry(elem):
