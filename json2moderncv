@@ -132,9 +132,13 @@ def cventry(elem, doc):
     return [p]
   elif doc.format == "html":
     sep = [Str(","), Space]
+    content =  degree            if degree      else []
+    content += sep + institution if institution else []
+    content += sep + city        if city        else []
+    content += sep + grade       if grade       else []
     left = [Header(*year, level=3)]
     right = [Header( \
-              *(degree + sep + institution + sep + city + sep + grade), \
+              *(content), \
               level=3 \
             )] + \
             [p for p in elem.content.list \
